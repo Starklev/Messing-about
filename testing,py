@@ -1,0 +1,52 @@
+import math
+
+latitude = 40.00000
+longitude = 105.00000
+
+Z = math.floor((longitude+180)/6)+1
+print(f"Z is {Z}")
+central_meridian = 6*Z - 183
+print(f"central_meridian is {central_meridian}")
+
+#convert to radians
+latitude = latitude * math.pi/180
+longitude = longitude * math.pi/180
+central_meridian = central_meridian * math.pi/180
+print("\nin radians:")
+print(f"latitude is {latitude}")
+print(f"longitude is {longitude}")
+print(f"central_meridian is {central_meridian}")
+
+#WGS84 values:
+a = 6378137.0
+e_squared = 0.00669438
+
+
+N = a/(math.sqrt(1.0-(e_squared*(math.sin(latitude)*math.sin(latitude)))))
+print(f"N is {N}")
+
+T = math.tan(latitude)*math.tan(latitude)
+print(f"T is {T}")
+
+e_primed_squared = e_squared / (1.0-e_squared)
+print(f"e_primed_squared is {e_primed_squared}")
+
+C = e_primed_squared * (math.cos(latitude)*math.cos(latitude))
+print(f"C is {C}")
+
+A = math.cos(latitude)*(longitude-central_meridian)
+print(f"A is {A}")
+
+A0 = 1 - (e_squared/4.0) - ((3.0*e_squared*e_squared)/64.0) - ((5.0*e_squared*e_squared*e_squared)/256.0)
+A2 = ((3.0*e_squared)/8.0) + ((3.0*e_squared*e_squared)/32.0) + ((45.0*e_squared*e_squared*e_squared)/1024.0)
+A4 = ((15.0*e_squared*e_squared)/256.0) + ((45.0*e_squared*e_squared*e_squared)/1024.0)
+A6 = (35.0*e_squared*e_squared*e_squared)/3072.0
+Meridional_arc = a*((A0*latitude)-(A2*math.sin(2.0*latitude))+(A4*math.sin(4.0*latitude))-(A6*math.sin(6.0*latitude)))
+print(f"Meridional_arc is {Meridional_arc}")
+
+k0 = 0.9996
+easting = 500000.0 + (k0*N*(A+(((1.0-T+C)*A*A*A)/6.0)+(((5.0-(18.0*T)+(T*T)+(72.0*C)-(58.0*e_primed_squared))*A*A*A*A*A)/120.0)))
+print(f"easting is {easting}")
+
+northing = k0*(Meridional_arc+N*math.tan(latitude)*(((A*A)/2.0)+(((5.0-T+(9.0*C)+(4.0*C*C))*A*A*A*A)/24.0)+(((61.0-(58.0*T)+(T*T)+(600.0*C)-(330.0*e_primed_squared))*A*A*A*A*A*A)/720.0)))
+print(f"northing is {northing}")
