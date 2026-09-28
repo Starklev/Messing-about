@@ -15,6 +15,7 @@ def create_app():
 
     load_dotenv()
 
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
     app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
     app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
@@ -23,9 +24,11 @@ def create_app():
     #print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")  # Debugging line
 
     db.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = 'login'
 
     with app.app_context():
-        from .models import User
+        from .models import User, Find
 
         db.create_all()
 
