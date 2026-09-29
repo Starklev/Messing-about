@@ -1,105 +1,34 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
-from flask_login import login_user, logout_user, login_required, current_user
-from project import create_app, db
-from project.models import User, Find
-
-app = create_app()
+from . import db, login_manager
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
-@app.route('/', methods=['GET'])
-def home():
-    return render_template('index2.html')
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(1000), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
-@app.route('/about', methods=['GET'])
-def about():
-    return jsonify({'message': 'About Us'})
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
 
-@app.route('/contact', methods=['GET'])
-def contact():
-    return jsonify({'message': 'Contact Us'})
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username'].strip()
-        email = request.form['email'].strip().lower()
-        password = request.form['password']
-
-        if not username or not email or not password:
-            flash('All fields are required.')
-            return render_template('register.html')
-
-        existing = User.query.filter(
-            (User.username == username) | (User.email == email)
-        ).first()
-        if existing:
-            flash('That username or email is already in use.')
-            return render_template('register.html')
-
-        user = User(username=username, email=email)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        return redirect(url_for('login'))
-
-    return render_template('register.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form['password']
-
-        user = User.query.filter_by(username=username).first()
-        if user is None or not user.check_password(password):
-            flash('Invalid username or password.')
-            return render_template('login.html')
-
-        login_user(user)
-        return redirect(url_for('home'))
-
-    return render_template('login.html')
+    def __repr__(self):
+        return f'<User {self.username}>'
 
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('home'))
-
-@app.route('/api/finds', methods=['GET'])
-def get_finds():
-    if not current_user.is_authenticated:
-        return jsonify({'error': 'Login required'}), 401
-
-    finds = Find.query.filter_by(user_id=current_user.id).order_by(Find.id.desc()).all()
-    return jsonify([
-        {'id': f.id, 'latitude': float(f.latitude),
-         'longitude': float(f.longitude), 'label': f.label}
-        for f in finds
-    ])
+class Find(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    latitude = db.Column(db.Numeric(10, 7), nullable=False)
+    longitude = db.Column(db.Numeric(10, 7), nullable=False)
+    label = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 
-@app.route('/api/finds', methods=['POST'])
-def add_find():
-    if not current_user.is_authenticated:
-        return jsonify({'error': 'Login required'}), 401
-
-    data = request.get_json(silent=True) or {}
-    try:
-        lat = float(data['latitude'])
-        lon = float(data['longitude'])
-    except (KeyError, TypeError, ValueError):
-        return jsonify({'error': 'Latitude and longitude must be numbers.'}), 400
-
-    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-        return jsonify({'error': 'Coordinates out of range.'}), 400
-
-    label = (data.get('label') or '').strip()[:200]
-    find = Find(user_id=current_user.id, latitude=lat, longitude=lon, label=label or None)
-    db.session.add(find)
-    db.session.commit()
-    return jsonify({'id': find.id, 'latitude': lat, 'longitude': lon}), 201
-
-if __name__ == '__main__':
-    app.run(debug=True)
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
